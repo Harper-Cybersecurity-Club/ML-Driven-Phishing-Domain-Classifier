@@ -1,0 +1,236 @@
+import whois, math, string, re
+
+def extract_features(domain):
+    features = {}
+
+    features['domain_length'] = count_character_length(domain)
+    features['creation_date'] = get_creation_date(domain)
+    features['subdomain_count'] = count_subdomains(domain)
+    features['entropy'] = find_entropy(domain)
+    features['digit_count'] = count_digits(domain)
+    features['special_character_count'] = count_special_characters(domain)
+    features['longest_subdomain_length'] = find_length_of_longest_subdomain(domain)
+    features['vowel_to_consonant_ratio'] = find_vowel_to_consonant_ratio(domain)
+    features['hyphen_count'] = count_hyphens(domain)
+    features['uppercase_count'] = count_uppercase_letters(domain)
+    features['cyrillic_vowel_substitution'] = check_for_cyrillic_vowels(domain)
+    features['non_latin_character'] = has_non_latin_characters(domain)
+    features['main_domain_length'] = find_main_domain_length(domain)
+    features['most_consecutively_repeated_character_count'] = find_most_consecutively_repeated_character_count(domain)
+
+    # /n is an escape character that prints new line
+    print("\nExtracted Features:\n")
+
+    for key, value in features.items():
+        print(f"{key}: {value}")
+
+    print()
+
+    return features
+
+
+# count character length of domain string (TLD + main domain + subdomains) including dots
+def count_character_length(domain):
+    return len(domain)
+
+
+# get domain creation date
+def get_creation_date(domain):
+    # try block- if error occurs, execution jumps to except block to handle it
+    try:
+        # carry out a WHOIS lookup for given domain
+        # the whois object has attributes of all the registration details 
+        whois_object = whois.whois(domain)
+
+        return whois_object.creation_date
+    except Exception as e:
+        print(f"ERROR FETCHING WHOIS DATA: {e}")
+
+        return None
+    
+
+# count number of subdomains
+def count_subdomains(domain):
+    # top-level domain (TLD) + subdomains
+    # make list of domains by splitting the whitespace-trimmed string dotwise
+    domains = domain.strip().split('.')
+
+    # take away 2 to account for the main domain and TLD, and return 0 if negative
+    return max(len(domains) - 2, 0)
+
+
+# phishing domains often have higher entropy because they use more random strings: for example, x7k9q2w.com.
+def find_entropy(domain):
+    # Remove dots to find entropy of characters only
+    domain = domain.replace('.', '')
+
+    # make dictionary of characters and their frequencies
+    character_frequencies = {}
+
+    # iterate over each character in domain string
+    for character in domain:
+        # increment character frequency counter for each character index of dictionary
+        character_frequencies[character] = character_frequencies.get(character, 0) + 1 # .get() gets the value stored in dictionary at given index, returns 0 if found empty
+
+    # initialize entropy variable and set to 0
+    entropy = 0.0
+
+    # get character length of domain string
+    domain_length = len(domain)
+
+    # calculate Shannon entropy of the domain string less dots
+    for count in character_frequencies.values():
+        relative_character_probability = count / domain_length
+        entropy -= relative_character_probability * math.log2(relative_character_probability)
+
+    # higher entropy = more randomness = higher likelihood of phishing
+    return entropy
+
+
+def count_digits(domain):
+    # Remove dots to count only in domain strings
+    domain = domain.replace('.', '')
+
+    # sum up number of digits in domain string
+    return sum(chararacter.isdigit() for chararacter in domain) # character.isdigit() return True or False which sum() treats as 1 and 0, respectively
+
+
+def count_special_characters(domain):
+    # Remove dots from domain string
+    domain = domain.replace('.', '')
+
+    # string.punctuation is a string of all standard punctuation characters like "!"#$%&'()*+,-./:;<=>?@[\]^_{|}~"
+    # set() builds a "set" or collection of unique, nonduplicated items
+    # special_characters is just string.punctuation without the dot character
+    special_characters = set(string.punctuation) - set('.')
+
+    # step over domain characters and sum up the special characters
+    # this syntax is called a generator expression it is more memory efficient than list comprehension (marked by square brackets []) for it yields items one at a time instead of storing the entire list in memory
+    return sum(character in special_characters for character in domain)
+
+
+def find_length_of_longest_subdomain(domain):
+    # Remove TLD and main domain
+    domains = domain.strip().split('.')
+
+    # return 0 if domain is just TLD and main domain
+    if len(domains) <= 2:
+        return 0
+    
+    # the subdomains are all the domains except the last two
+    subdomains = domains[:-2]
+
+    # return that subdomain whose length is longest
+    return max((len(subdomain) for subdomain in subdomains), default=0)
+
+
+def find_vowel_to_consonant_ratio(domain):
+    # take away dots from domain string and convert to all lowercase
+    domain = domain.replace('.', '').lower()
+
+    # make set of vowel character
+    vowels = set('aeiou')
+
+    # count vowels
+    vowel_count = sum(1 for character in domain if character in vowels)
+
+    # count consonants
+    consonant_count = sum(1 for character in domain if character.isalpha() and character not in vowels)
+
+    # avoid dividing by zero if there are no consonants in domain string
+    if consonant_count == 0:
+        return float('inf') if vowel_count > 0 else 0
+    
+    # return vowel to consonant ratio
+    return vowel_count / consonant_count
+
+
+def count_hyphens(domain):
+    # Remove dots to focus on the domain part
+    domain = domain.replace('.', '')
+
+    return domain.count('-')
+
+
+def count_uppercase_letters(domain):
+    # Remove dots to focus on the domain part
+    domain = domain.replace('.', '')
+
+    return sum(1 for character in domain if character.isupper()) # generator expression, yield a 1 for every uppercase character in domain and then add up all the 1's
+
+
+def check_for_cyrillic_vowels(domain):
+    # map Latin vowels to visually similar Cyrillic vowel letters by making a dictionary
+    cyrillic_vowel_map = {
+        'a': '\u0430',  # Cyrillic small a
+        'e': '\u0435',  # Cyrillic small e
+        'o': '\u043E',  # Cyrillic small o
+        'i': '\u0456',  # Cyrillic small i
+        'y': '\u0443',  # Cyrillic small u (looks like y)
+        'u': '\u0443',  # Cyrillic small u
+    }
+
+    # iterate over each key-value pair in cyrillic_vowel_map dictionary
+    # for each pair, check if Cyrillic vowel is found in domain string
+    for latin_vowel, cyrillic_vowel in cyrillic_vowel_map.items(): # .items() is an object holding all the key-value pairs in the dictionary, used to loop through each pair in the dictiopnary
+        if cyrillic_vowel in domain:
+            # return True as soon as just one Cyrillic vowel is found
+            return True
+        
+    return False
+
+
+def has_non_latin_characters(domain):
+    # checks for any character outside the basic Latin alphabet, digits, hyphen, and dot
+    for character in domain: # step over characters of domain string
+        # check if character not found in ASCII table, if character is not alphanumberic, or if character is not hyphen or dot
+        if not (character.isascii() and (character.isalnum() or character in '-.')):
+            return True
+        
+    # otherwise return False
+    return False
+
+
+def is_ip_address(domain):
+    pattern = r'^(\d{1,3}\.){3}\d{1,3}$' # this is a regular expression (regex) pattern
+
+    # checks if the domain is an IPv4 address
+    # re.match() applies pattern to start of string
+    # bool() converts resulting re.match() match object to True or False
+    return bool(re.match(pattern, domain.strip()))
+
+
+def find_main_domain_length(domain):
+    # make list of domains by splitting domain string dotwise
+    domains = domain.strip().split('.')
+
+    # if there is only one domain it has to be the TLD so there is no main domain
+    if len(domains) < 2:
+        return 0
+    
+    # gets the length of the main domain (just before the TLD)
+    return len(domains[-2]) # access second-to-last element
+
+
+# detect domains with suspiciously repeated characters like the 'l' in paypalll.com
+def find_most_consecutively_repeated_character_count(domain):
+    # remove dots from domain string
+    domain = domain.replace('.', '')
+    most_consecutively_repeated_character_count = 1
+    consecutively_repeated_character_count = 1
+    last_character = ''
+
+    # iterate (step over) characters in domain string
+    for character in domain:
+        # if current character is same as one before (last one), increment repeat counter
+        if character == last_character:
+            repeated_character_count += 1
+            # update max if current streak is the longest so far
+            most_consecutively_repeated_character_count = max(most_consecutively_repeated_character_count, consecutively_repeated_character_count)
+        else:
+            # reset repeat counter for new character
+            repeated_character_count = 1
+            last_character = character
+
+    return most_consecutively_repeated_character_count
+
