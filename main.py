@@ -1,11 +1,16 @@
 # ML Driven Phishing Domain Classifier
 
-# from extract_features import is_ip_address, extract_features
+from extract_features import count_character_length
+
+from extract_features import find_main_domain_length
 
 def main():
     while True:
         # get domain string input and strip whitespace characters
         domain = input("Enter a domain to extract its features: ").strip()
+
+        print(count_character_length(domain))
+        print(find_main_domain_length(domain))
 
         # basic domain validation: must contain at least one dot, no spaces, not be an IP address
         # if ' ' in domain or '.' not in domain or is_ip_address(domain):
